@@ -1,0 +1,315 @@
+---
+title: "ICD-10 lookup from NRS codes"
+author: "David Henderson"
+date: "20/10/2020"
+output: 
+  html_document:
+    df_print: paged
+    theme: spacelab
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Intro
+
+Quick script to ingest NRS spreadsheet for Cause-of_death codes and cut-down to sub-chapter level. Hopefully this can be uploaded into National Safe Haven as a lookup table for my COVID-19 project
+
+## Packages
+
+```{r}
+library(tidyverse)
+library(curl)
+library(readxl)
+library(janitor)
+```
+
+
+## Data
+
+Sourced from NRS website [here](https://www.nrscotland.gov.uk/statistics-and-data/statistics/statistics-by-theme/vital-events/general-background-information/code-lists-used-in-vital-events-statistics)
+
+
+```{r}
+temp_1 <- tempfile()
+source <- "https://www.nrscotland.gov.uk/files/statistics/vital-events/causes-of-death-codes-june2010.xls"
+
+temp_1 <- curl_download(url = source, destfile = temp_1, quiet = FALSE)
+
+icd <- read_xls(path = temp_1, sheet = 1, range = "A40:C11358")
+```
+
+
+```{r}
+  icd %>% 
+  clean_names() %>% 
+  select(-four_character) %>% 
+  filter(!is.na(three_character)) %>% 
+  add_row(three_character = "J09", group = "Influenza due to identified zoonotic or pandemic influenza virus") %>% 
+  add_row(three_character = "K64", group = "Haemorrhoids and perianal venous thrombosis") %>% 
+  add_row(three_character = "O94", group = "Sequelae of complication of pregnancy, childbirth and puerperium") %>% 
+  add_row(three_character = "R65", group = "Systemic Inflammatory Response Syndrome (SIRS)") %>% 
+  add_row(three_character = "T76", group = "Unspecified effects of external causes") %>% 
+  add_row(three_character = "W46", group = "Contact with hypodermic needle") %>% 
+  arrange(three_character) -> icd
+```
+
+
+```{r}
+icd %>% 
+  mutate(sub_chapter = c(
+  # Chapter 1 - Certain infectious and parasitic diseases
+  rep("Intestinal indectious diseases", 10),
+  rep("Tuberculosis", 5),
+  rep("Certain zoonotic bacterial diseases", 9),
+  rep("Other bacterial diseases", 18),
+  rep("Infections with a predominantly sexual mode of transmission", 13),
+  rep("Other spirochaetal diseases", 5),
+  rep("Other diseases caused by chlamydiae", 3),
+  rep("Rickettsioses", 4),
+  rep("Viral infections of the central nervous system", 10),
+  rep("Arthropod-borne viral fevers and viral haemorrhagic fevers", 8),
+  rep("Viral infections characterised by skin and mucous membrane lesions", 10),
+  rep("Viral Hepatitis", 5),
+  rep("Human immunodeficiency virus (HIV) disease", 5),
+  rep("Other viral diseases", 6),
+  rep("Mycoses", 15),
+  rep("Protozoal diseases", 11),
+  rep("Helminthiases", 19),
+  rep("Pediculosis, acariasis and other infestations", 5),
+  rep("Sequelae of infectious and parasitic diseases", 4),
+  rep("Bacterial, viral and other infectious agents", 4),
+  "Other infectious diseases",
+  # Chapter 2 - Neoplasms
+  rep("Malignant neoplasms", 89),
+  rep("In situ neoplasms", 9),
+  rep("Benign neoplasms", 27),
+  rep("Neoplasms of uncertain or unknown behaviour", 12),
+  # Chapter 3 - Diseases of the blood and blood-forming organs and certain disorders involving the immune mechanism
+  rep("Nutritional anaemias", 4),
+  rep("Haemolytic anaemias", 5),
+  rep("Aplastic and other anaemias", 5),
+  rep("Coagulation defects, purpura and other haemorrhagic conditions", 5),
+  rep("Other disease of blood and blood-forming organs", 8),
+  rep("Certain disorders involving the immune mechanism", 7),
+  # Chapter 4 - Endocrine, nutritional and metabolic diseases
+  rep("Disorders of the thyroid gland", 8),
+  rep("Diabetes mellitus", 5),
+  rep("Other disorders of glucose regulation and pancreatic internal secretion", 2),
+  rep("Disorders of other endocrine glands", 15),
+  rep("Malnutrition", 7),
+  rep("Other nutritional deficiencies", 13),
+  rep("Obesity and other hyperalimentation", 4),
+  rep("Metabolic disorders", 19),
+  # Chapter 5 - Mental and behavioural disorders
+  rep("Organic, including symptomatic, mental disorders", 9),
+  rep("Mental and behavioural disorders due to psychoactive substance use", 10),
+  rep("Scizophrenia, schizotypal and delusional disorders", 8),
+  rep("Mood (affective) disorders", 7),
+  rep("Neurotic, stress-related and somatoform disorders", 7),
+  rep("Behavioural syndromes associated with physiological disturbances and physical factors", 7),
+  rep("Disorders of adult personality and behaviour", 9),
+  rep("Mental retardation", 6), 
+  rep("Disorders of psychological development", 7),
+  rep("Behavioural and emotional disorders with onset ususally occurring in childhood and adolescence", 7),
+  rep("Unspecified mental disorder", 1),
+  # Chapter 6 - Diseases of the nervous system
+  rep("Inflammatory diseases of the central nervous system", 10), 
+  rep("Systemic atrophies primarily affecting the central nervous system", 5),
+  rep("Extrapyrimidal and movement disorders", 7),
+  rep("Other degenerative diseases of the nervous system", 3),
+  rep("Demylelinating diseases of the central nervous system", 3),
+  rep("Episodic and paroxysmal disorders", 7),
+  rep("Nerve, nerve root and plexus disorders", 10),
+  rep("Polyneuropathies and other disorders of the peripheral nervous system", 5),
+  rep("Diseases of myoneural junction and muscle", 4),
+  rep("Cerbral palsy and other paralytic syndromes", 4),
+  rep("Other disorders of the nervous system", 10),
+  # Chapter 7 - Diseases of the eye and and adnexa
+  rep("Disorders of eyelid, lacrimal system and orbit", 7),
+  rep("Disorders od the conjunctiva", 3),
+  rep("Diosrders of the sclera, cornea, iris and ciliary body", 8),
+  rep("Disorders of the lens", 4),
+  rep("Disorders of choroid and retina", 7),
+  rep("Galucoma", 2),
+  rep("Diorders of the vitreous body and globe", 3),
+  rep("Disorders of the optic nerve and visual pathways", 3),
+  rep("Disorders of the ocular muscles, binocular movement, accommmodation and refraction", 4),
+  rep("Visual disturbanes and blindness", 2),
+  rep("Other disorders of the eye and adnexa", 4),
+  # Chapter 8 - Diseases of the ear and mastoid process
+  rep("Diseases of the external ear", 3),
+  rep("Diseases of the middle ear and mastoid", 11),
+  rep("Diseases of the inner ear", 4),
+  rep("Other disorders of the ear", 6),
+  # Chapter 9 = Diseases of the circulatory system
+  rep("Acute rheumatic fever", 3),
+  rep("Chronic rheumatic heart diseases", 5),
+  rep("Hypertensive diseases", 5),
+  rep("Ischaemic heart diseases", 6),
+  rep("Pulmonary heart disease and diseases of pulmonary circulation", 3),
+  rep("Other forms of heart disease", 23),
+  rep("Cerebrovascular disease", 10),
+  rep("Diseases of the arteries, arterioles and capillaries", 8),
+  rep("Diseases of veins, lymphatic vessels and lymph nodes, not elsewhere classified", 9),
+  rep("Other and unspecified disorders of the circulatory system", 4),
+  # Chapter 10 - Diseases of the respiratory system
+  rep("Acute upper respiratory infections", 7),
+  rep("Influenza and pneumonia", 10),
+  rep("Other acute lower respiratory infections", 3),
+  rep("Other diseases of the upper respiratory tract", 10),
+  rep("Chronic lower respiratory disease", 8),
+  rep("Lung diseases due to external agents", 11),
+  rep("Other respiratory diseases principally affecting the interstitium", 4),
+  rep("Suppurative and necrotic conditions of lower respiratory tract", 2),
+  rep("Other diseases of pleura", 5),
+  rep("Other diseases of the respiratory system", 4),
+  # Chapter 11 - Disease of the digestive system
+  rep("Diseases of the oral cavity, salivary glands and jaws", 15),
+  rep("Diseases of the oesophagus, stomach and duodenum", 11),
+  rep("Diseases of appendix", 4),
+  rep("Hernia", 7),
+  rep("Noninfective enteritis and colitis", 3),
+  rep("Other diseases of the intestines", 10),
+  rep("Diseases of the peritoneum", 3),
+  rep("Diseases of the liver", 8),
+  rep("Disorders od the gallbladder, biliary tract and pancreas", 7),
+  rep("Other diseases of the digestive system", 4),
+  # Chapter 12 Diseases of the skin and subcutaneous tissue
+  rep("Infections of the skin and subcutaneous tissue", 7),
+  rep("Bullous disorders", 5),
+  rep("Dermatitis and eczema", 11),
+  rep("Papulosquamous disorders", 6),
+  rep("Urticaria and erythema", 5),
+  rep("Radiation-related disorders of the skin and subcutaneous tissue", 5),
+  rep("Disorders of skin appendages", 14),
+  rep("Other disorders of the skin and subcutaneous tissue", 19),
+  # Chapter 13 Diseases of the musculoskeletal system and connective tissue
+  rep("Arthopathies", 25),
+  rep("Systemic connective tissue disorders", 7),
+  rep("Dorsopathies", 13),
+  rep("Soft tissue disorders", 16),
+  rep("Osteopathies and chondropathies", 15),
+  rep("Other disorders od the musculoskeletal system and connective tissue", 3),
+  # Chapter 14 - Diseases of the genitourinary system
+  rep("Glomerular diseases", 9),
+  rep("Reanl tubulo-interstitial diseases", 7),
+  rep("Renal failure", 3),
+  rep("Urolithiasis", 4),
+  rep("Other disorders od the kidney and ureter", 5),
+  rep("Other diseases of the urinary system", 9),
+  rep("Diseases of the male genital organs", 12),
+  rep("Disorders of the breast", 5),
+  rep("Inflammatory diseases of femal pelvic organs", 8),
+  rep("Noninflammatory diseases of female genital tract", 19),
+  rep("Other disorders of the genitourinary system", 1),
+  # Chapter 15 - Pregnancy, childbirth and the puerperium
+  rep("Pregnancy with abortive outcome", 9),
+  rep("Oedema, proteinuria and hypertensive disorders in pregnancy, childbirth and the puerperium", 7),
+  rep("Other maternal disorders predominantly related to pregnancy", 9),
+  rep("Maternal care related to the fetus and amniotic cavity and possible delivery problems", 16),
+  rep("Complications of labour and delivery", 16),
+  rep("Delivery", 5),
+  rep("Complications predominantly related to the puerperium", 8),
+  rep("Other obstetric conditions, not elsewhere classified", 6),
+  # Chapter 16 - Certain conditions originating in the perinatal period
+  rep("Fetus and newborn affected by maternal factors and by complications of pregnancy, labour and delivery", 5),
+  rep("Disorders related to length of gestation and fetal growth", 3),
+  rep("Birth trauma", 6),
+  rep("Respiratory and cardiovascular disorders specific to the perinatal period", 10),
+  rep("Infections specific to the perinatal period", 5),
+  rep("Haemorrhagic and haematological disorders of fetus and newborn", 12),
+  rep("Transitory endocrine and metabolic disorders specific to fetus and newborn", 4),
+  rep("Digestive system disorders of fetus and newborn", 4),
+  rep("Conditions involving the integument and temperature regulation of fetus and newborn", 3),
+  rep("Other disorders originating in the perinatal period", 7),
+  # Chapter 17 - Congenital malformations, deformations and chromosomal abnormalities
+  rep("Congenital malformations of the nervous system", 8),
+  rep("Congenital malformations of the eye, ear, face and neck", 9),
+  rep("Congenital malformations of the circulatory system", 9),
+  rep("Congenital malformations of the respiratory system", 5),
+  rep("Cleft lip and cleft palate", 3),
+  rep("Other congenital malformations of the digestive system", 8),
+  rep("Congenital malformations of the genital organs", 7),
+  rep("Congential malformations os the urinary system", 5),
+  rep("Congenital malformations and deformations of the musculoskeletal system", 15),
+  rep("Other congenital malformations", 9),
+  rep("Chromosomal abnormalities, not elsewhere classified", 9),
+  # Chapter 18 - Symptoms, signs and abnormal clinical and laboratory findings, not elsewhere classified
+  rep("Symptoms and signs involving the ciculatory and respiratory systems", 9),
+  rep("Symptoms and signs involving the digestive system and abdomen", 10),
+  rep("Symptoms and signs involving the skin and subcutaneous tissue", 4),
+  rep("Symptoms and signs involving the nervous and musculoskeletal systems", 4),
+  rep("Symptoms and signs involving the urinary system", 8),
+  rep("Symptoms and signs involving cognition, perception, emotional state and behaviour", 7),
+  rep("Symptoms and signs involving speech and voice", 3),
+  rep("General symptoms and signs", 18),
+  rep("Abnormal findings on examination of blood, without diagnosis", 10),
+  rep("Abnormal findings on examination of urine, without diagnosis", 3),
+  rep("Abnormal findings on examination of other body fluids, substances and tissues, without diagnosis", 6),
+  rep("Abnormal findings on diagnostic imaging and in function studies, without diagnosis", 5),
+  rep("Ill-defined and unknown causes of mortality", 4),
+  # Chapter 19 - Injury, poisoning and certain other consequences of external causes
+  rep("Injuries to the head", 10),
+  rep("Injuries to the neck", 10),
+  rep("Injuries to the thorax", 10),
+  rep("Injuries to the abdomen, lower back, lumbar spine and pelvis", 10),
+  rep("Injuries to the shoulder and upper arm", 10),
+  rep("Injuries to the elbow and forearm", 10),
+  rep("Injuries to the wrist and hand", 10),
+  rep("Injuries to the hip and thigh", 10),
+  rep("Injuries to the knee and lower leg", 10),
+  rep("Injuries to the ankle and foot", 10),
+  rep("Injuries involving multiple body regions", 8),
+  rep("Injuries to specific part of trunk, limb or body region", 7),
+  rep("Effects of foreign body entering through natural orifice", 5),
+  rep("Burns and corrosions", 13),
+  rep("Frostbite", 3),
+  rep("Poisoning by drugs, medicaments and biological substances", 15),
+  rep("Toxic effects of substances chiefly nonmedical as to source", 15),
+  rep("Other and unspecified effects of external causes", 11),
+  rep("Certain early complications of trauma", 1),
+  rep("Complications of surgical and medical care, not elsewhere classified", 9),
+  rep("Sequelae of injuries, of poisoning and of other consequences of external causes", 9),
+  # Chapter 20 - External causes of morbidity and mortality
+  rep("Accidents", 242),
+  rep("Intentional self-harm", 25),
+  rep("Assault", 25),
+  rep("Event of undetermined intent", 25),
+  rep("Legal intervention and operations of war", 2),
+  rep("Complications of medical and surgical care", 43),
+  rep("Sequelae of external causes of morbidity and mortality", 5),
+  rep("Supplementary factors related to causes of morbidity and mortality classified elsewhere", 6)),
+  chapter = c(
+    rep("Certain infectious and parasitic diseases", 170),
+    rep("Neoplasms", 137),
+    rep("Diseases of the blood and blood-forming organs and certain disorders involving the immune mechanism", 34),
+    rep("Endocrine, nutritional and metabolic diseases", 73),
+    rep("Mental and behavioural disorders", 78),
+    rep("Diseases of the nervous system", 68),
+    rep("Diseases of the eye and adnexa", 47),
+    rep("Diseases of the ear and mastoid process", 24),
+    rep("Diseases of the circulatory system", 76),
+    rep("Diseases of the respiratory system", 64),
+    rep("Diseases of the digestive system", 72),
+    rep("Diseases of the skin and subcutaneous tissue", 72),
+    rep("Diseases of the musculoskeletal system and connective tissue", 79),
+    rep("Diseases of the genitourinary system", 82),
+    rep("Pregnancy, childbirth and the peurperium", 76),
+    rep("Certain conditions originating in the perinatal period", 59),
+    rep("Congenital malformations, deformations and chromosomal abnormalities", 87),
+    rep("Symptoms, signs, and abnormal clinical and laboratory findings, not elsewhere classified", 91),
+    rep("Injury, poisoning and certain other consequences of external causes", 196),
+    rep("External causes of morbidity and mortality", 373)
+  )) -> icd
+```
+
+```{r}
+write_csv(icd, path = "nrs_icd_lookup.csv")
+```
+
+
+
+
